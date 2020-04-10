@@ -48,7 +48,7 @@ class SyncTableColumns extends Command
 
     protected function getStub($type)
     {
-        return file_get_contents("../Stubs/$type.stub"));
+        return file_get_contents("../Stubs/$type.stub");
     }
 
     protected function getColumns($class)
