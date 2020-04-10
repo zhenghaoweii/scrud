@@ -65,7 +65,7 @@ class ApiGenerator extends Command
 
     protected function getStub($type)
     {
-        return file_get_contents("../Stubs/$type.stub");
+        return file_get_contents("limitless/src/Stubs/$type.stub");
     }
 
     /**
