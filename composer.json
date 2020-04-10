@@ -1,0 +1,24 @@
+{
+    "name": "limitless/scrud",
+    "description": "Simple Laravel Default CRUD",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Zheng Haowei",
+            "email": "zhenghaowei88@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "autoload": {
+        "psr-4": {
+            "limitless\\scrud\\" : "src"
+        }
+    },
+    "require": {
+        "php": "^7.0"
+    },
+    "require-dev": {
+
+    }
+},
