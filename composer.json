@@ -20,5 +20,12 @@
     },
     "require-dev": {
 
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Providers\\ServiceProvider"
+            ]
+        }
     }
 }
