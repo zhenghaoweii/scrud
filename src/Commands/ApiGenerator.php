@@ -105,10 +105,10 @@ class ApiGenerator extends Command
                 $this->getStub('Model')
         );
 
-        if ( ! $this->file->isDirectory(app_path("/Models"))) {
-            $this->file->makeDirectory(app_path("/Models"), 0777, true, true);
+        if ( ! $this->file->isDirectory($this->getConfig('directory.model'))) {
+            $this->file->makeDirectory($this->getConfig('directory.model'), 0777, true, true);
         }
-        $path = app_path('/Models/'.Str::ucfirst($class).'.php');
+        $path = $this->getConfig('directory.model').'/'.Str::ucfirst($class).'.php';
         if ( ! $this->file->exists($path)) {
             $this->file->put($path, $modelTemplate);
         }

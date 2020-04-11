@@ -93,8 +93,7 @@ class SyncTableColumns extends Command
                 $this->getStub('Sync/Model')
         );
 
-
-        $path = app_path('Models/'.Str::ucfirst($class).'.php');
+        $path = $this->getConfig('directory.model').'/'.Str::ucfirst($class).'.php';
         $this->file->put($path, $resources);
     }
 
