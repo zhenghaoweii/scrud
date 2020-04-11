@@ -165,6 +165,5 @@ class ApiGenerator extends Command
         if (count(glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'))) === 0) {
             $this->file->put($path, $modelTemplate);
         }
-
     }
 }
