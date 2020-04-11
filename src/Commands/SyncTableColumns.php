@@ -41,9 +41,9 @@ class SyncTableColumns extends Command
     public function handle()
     {
         $class = $this->argument('class');
+        $this->syncModel($class);
         $this->syncResource($class);
         $this->syncRequest($class);
-        $this->syncModel($class);
     }
 
     protected function getStub($type)
@@ -55,26 +55,25 @@ class SyncTableColumns extends Command
     {
         $file = glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'))[0];
 
-        $explode = explode('$table->', $this->file->get($file));
+        preg_match_all('/table->(.*?)\(\'(.*?)\'\)/', $this->file->get($file), $matched);
 
-        unset($explode[0]);
-        $result = collect($explode)->map(function ($item) {
-            preg_match("/(.*?)('(.*?)')/", $item, $matched);
-
-            if (isset($matched[3])) {
-                return $matched[3];
-            }
-        })->filter(function ($item) {
-            if ($item != null
-                    && $item != 'created_by'
-                    && $item != 'updated_by'
-                    && $item != 'deleted_by'
-            ) {
-                return $item;
+        $merged  = collect($matched[2])->combine($matched[1])->toArray();
+        $columns = [];
+        collect($merged)->each(function ($item, $index) use (&$columns) {
+            if ($item == 'enum') {
+                preg_match('/\[(.*?)\]/', $index, $matched);
+                $enum               = array_map('trim', explode(',', $matched[1]));
+                $index              = explode("',", $index);
+                $columns[$index[0]] = [
+                        'value'   => $item,
+                        'options' => str_replace("'", '', $enum),
+                ];
+            } else {
+                $columns[$index] = $item;
             }
         })->all();
 
-        return $result;
+        return $columns;
     }
 
     protected function syncModel($class)
@@ -84,7 +83,7 @@ class SyncTableColumns extends Command
                 [
                         Str::ucfirst($class),
                         strtolower(Str::plural($class)),
-                        collect($this->getColumns($class))->filter(function ($item){
+                        collect($this->getColumns($class))->keys()->filter(function ($item) {
                             return $item != 'id';
                         })->map(function ($item) {
                             return "'$item'";
@@ -93,21 +92,23 @@ class SyncTableColumns extends Command
                 $this->getStub('Sync/Model')
         );
 
+
         $path = app_path('Models/'.Str::ucfirst($class).'.php');
         $this->file->put($path, $resources);
     }
 
     protected function syncResource($class)
     {
+        $value = collect($this->getColumns($class))->keys()->map(function ($item) {
+            return "'$item'=>\$this->$item";
+        })->implode(',');
 
         $resources = str_replace(
                 ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
                 [
                         Str::ucfirst($class),
                         strtolower(Str::plural($class)),
-                        collect($this->getColumns($class))->map(function ($item) {
-                            return "'$item'=>\$this->$item,\n";
-                        })->implode('')
+                        $value
                 ],
                 $this->getStub('Sync/Resource')
         );
@@ -118,16 +119,32 @@ class SyncTableColumns extends Command
 
     protected function syncRequest($class)
     {
+        $value = collect($this->getColumns($class))->filter(function ($item, $index) {
+            return $index != 'id';
+        })->map(function ($item, $index) {
+            if (isset($item['value']) && $item['value'] == 'enum') {
+                $options = implode(',', $item['options']);
+
+                return "'$index'=>'required|in:$options'";
+            }
+            switch ($item) {
+                case 'bigInteger':
+                    return "'$index'=>'required|numeric'";
+                    break;
+                case 'boolean':
+                    return "'$index'=>'required|boolean'";
+                    break;
+                default:
+                    return "'$index'=>'required'";
+            }
+        })->implode(',');
+
         $modelTemplate = str_replace(
-                ['{{ class }}', '{{ classPlural }}','{{ value }}'],
+                ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
                 [
                         Str::ucfirst($class),
                         strtolower(Str::plural($class)),
-                        collect($this->getColumns($class))->filter(function ($item){
-                            return $item != 'id';
-                        })->map(function ($item) {
-                            return "'$item'=>'required',\n";
-                        })->implode('')
+                        $value
                 ],
                 $this->getStub('Sync/Requests/Create')
         );
@@ -135,16 +152,13 @@ class SyncTableColumns extends Command
         $this->file->put($path, $modelTemplate);
 
 
+
         $modelTemplate = str_replace(
-                ['{{ class }}', '{{ classPlural }}','{{ value }}'],
+                ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
                 [
                         Str::ucfirst($class),
                         strtolower(Str::plural($class)),
-                        collect($this->getColumns($class))->filter(function ($item){
-                            return $item != 'id';
-                        })->map(function ($item) {
-                            return "'$item'=>'required',\n";
-                        })->implode('')
+                        $value
                 ],
                 $this->getStub('Sync/Requests/Update')
         );
