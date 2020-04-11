@@ -8,6 +8,7 @@ use Illuminate\Database\Schema\ColumnDefinition;
 use Illuminate\Filesystem\Filesystem;
 use Str;
 use File;
+use Arr;
 
 class ApiGenerator extends Command
 {
@@ -165,5 +166,26 @@ class ApiGenerator extends Command
         if (count(glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'))) === 0) {
             $this->file->put($path, $modelTemplate);
         }
+    }
+
+    /**
+     * Helper to get the config values.
+     *
+     * @param  string  $key
+     * @param  string  $default
+     *
+     * @return mixed
+     */
+    protected function getConfig($key)
+    {
+        $file = new Filesystem;
+
+        if($file->exists(config_path('scrud.php'))){
+            $config = include(config_path('scrud.php'));
+        }else{
+            $config = include(realpath(__DIR__.'/../../config/config.php'));
+        }
+
+        return Arr::get($config, $key);
     }
 }

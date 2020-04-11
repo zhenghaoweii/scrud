@@ -5,6 +5,7 @@ namespace limitless\scrud\Commands;
 use Illuminate\Console\Command;
 use Illuminate\Filesystem\Filesystem;
 use Str;
+use Arr;
 
 class SyncTableColumns extends Command
 {
@@ -165,5 +166,26 @@ class SyncTableColumns extends Command
 
         $path = app_path('/Http/Requests/'.Str::ucfirst($class).'/Update'.Str::ucfirst($class).'Request.php');
         $this->file->put($path, $modelTemplate);
+    }
+
+    /**
+     * Helper to get the config values.
+     *
+     * @param  string  $key
+     * @param  string  $default
+     *
+     * @return mixed
+     */
+    protected function getConfig($key)
+    {
+        $file = new Filesystem;
+
+        if($file->exists(config_path('scrud.php'))){
+            $config = include(config_path('scrud.php'));
+        }else{
+            $config = include(realpath(__DIR__.'/../../config/config.php'));
+        }
+
+        return Arr::get($config, $key);
     }
 }

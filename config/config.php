@@ -2,6 +2,6 @@
 
 return [
         'directory' => [
-                'model' => '/'
+                'model' => app_path('/')
         ]
 ];
