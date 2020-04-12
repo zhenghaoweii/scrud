@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="scrub Test Suite" tests="1" assertions="0" errors="0" failures="0" skipped="0" time="0.007920">
-    <testsuite name="initTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/initTest.php" tests="1" assertions="0" errors="0" failures="0" skipped="0" time="0.007920">
-      <testcase name="testPushAndPop" class="initTest" classname="initTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/initTest.php" line="8" assertions="0" time="0.007920"/>
+  <testsuite name="scrub Test Suite" tests="5" assertions="6" errors="0" failures="0" skipped="0" time="0.092265">
+    <testsuite name="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" tests="5" assertions="6" errors="0" failures="0" skipped="0" time="0.092265">
+      <testcase name="generate_controller" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="42" assertions="1" time="0.047498"/>
+      <testcase name="generate_model" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="51" assertions="1" time="0.009881"/>
+      <testcase name="generate_request" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="60" assertions="2" time="0.010136"/>
+      <testcase name="generate_resource" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="71" assertions="1" time="0.014576"/>
+      <testcase name="generate_migration" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="79" assertions="1" time="0.010174"/>
     </testsuite>
   </testsuite>
 </testsuites>

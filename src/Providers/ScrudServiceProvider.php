@@ -13,6 +13,8 @@ class ScrudServiceProvider extends AbstractServiceProvider
         $path = realpath(__DIR__.'/../../config/config.php');
 
         $this->publishes([$path => config_path('scrud.php')], 'config');
+
+        //php artisan vendor:publish --tag=scrud
         $this->mergeConfigFrom($path, 'scrud');
 
         if ($this->app->runningInConsole()) {
