@@ -1,10 +1,9 @@
 <?php
 
-namespace limitless\Traits;
+namespace limitless\scrud\Traits;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Route;
 
 trait ApiCRUD {
