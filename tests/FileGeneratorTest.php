@@ -37,10 +37,9 @@ class FileGeneratorTest extends TestCase
     protected function tearDown()
     {
         parent::tearDown();
-        system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
+//        system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
         new Illuminate\Foundation\Application(null);
     }
-
 
     /** @test */
     public function default_generator()
@@ -235,5 +234,23 @@ class FileGeneratorTest extends TestCase
         $this->assertFileExists($path);
     }
 
+
+    /**
+     * @test
+     * @throws FileNotFoundException
+     */
+    public function check_existing()
+    {
+        (new ClassesGenerator)->controller($this->class);
+        (new ClassesGenerator)->model($this->class);
+        (new ClassesGenerator)->request($this->class);
+        (new ClassesGenerator)->resource($this->class);
+        (new ClassesGenerator)->migration($this->class);
+
+        $found = true;
+        $check = (new ClassesGenerator)->checkFilesExisting($this->class);
+
+        $this->assertTrue($found, true);
+    }
 
 }

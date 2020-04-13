@@ -318,7 +318,7 @@ class ClassesGenerator
             $published = config_path('scrud.php');
             $default   = realpath(__DIR__.'/../../config/config.php');
             $include   = ($this->file->exists($published)) ? $published : $default;
-            $config    = file_get_contents($include);
+            $config    = include($include);
 
             if ($key != null && is_array($config)) {
                 return Arr::get($config, $key);
@@ -383,6 +383,41 @@ class ClassesGenerator
     public function getDatePrefix()
     {
         return date('Y_m_d_His');
+    }
+
+    /**
+     * @param $class
+     * @return array
+     * @throws Exception
+     */
+    public function checkFilesExisting($class)
+    {
+        $class   = Str::ucfirst($class);
+
+        try {
+            $toCheck = [
+                    'controller'     => '/Http/Controllers/API/'.$class.'Controller.php',
+                    'model'          => $this->getConfig('directory.model').'/'.$class.'.php',
+                    'create request' => '/Http/Requests/'.$class.'/Create'.$class.'Request.php',
+                    'update request' => '/Http/Requests/'.$class.'/Create'.$class.'Request.php',
+                    'resource'       => '/Http/Resources/'.$class.'Resource.php',
+            ];
+        } catch (Exception $e) {
+            throw new Exception($e);
+        }
+
+        $existed = collect($toCheck)->filter(function ($item) {
+            if ($this->file->exists(app_path($item))) {
+                return true;
+            }
+            return false;
+        })->keys()->all();
+
+        $last  = array_slice($existed, -1);
+        $first = join(', ', array_slice($existed, 0, -1));
+        $both  = array_filter(array_merge(array($first), $last), 'strlen');
+        return join(' and ', $both);
+
     }
 
 }

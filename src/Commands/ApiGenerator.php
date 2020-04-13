@@ -4,6 +4,7 @@ namespace limitless\scrud\Commands;
 
 use Exception;
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 use limitless\scrud\Classes\ClassesGenerator;
 
 class ApiGenerator extends Command
@@ -45,15 +46,30 @@ class ApiGenerator extends Command
         $class         = $this->argument('class');
         $haveMigration = $this->option('m');
 
-        $this->generator->controller($class);
-        $this->generator->model($class);
-        $this->generator->request($class);
-        $this->generator->resource($class);
+        $existed = $this->generator->checkFilesExisting($class);
 
-        if ($haveMigration == 'm') {
-            $this->generator->migration($class);
+        $continue = false;
+        if($existed != ''){
+            if ($this->confirm('There\'s existing files with same class name in '.$existed.'. Do you wish to continue? (it will overwrite the existing files)')) {
+                $continue = true;
+            }
         }
 
-        return 'Completed';
+        if($continue || $existed == ''){
+            $this->generator->controller($class);
+            $this->info('Generated controller : '.Str::ucfirst($class).'Controller.php');
+            $this->generator->model($class);
+            $this->info('Generated model : '.Str::ucfirst($class).'.php');
+            $this->generator->request($class);
+            $this->info('Generated create request : Create'.Str::ucfirst($class).'Request.php');
+            $this->info('Generated update request : Update'.Str::ucfirst($class).'Request.php');
+            $this->generator->resource($class);
+            $this->info('Generated resource : Update'.Str::ucfirst($class).'Resource.php');
+
+            if ($haveMigration == 'm') {
+                $migration = $this->generator->migration($class);
+                $this->info('Generated migration : '.$migration);
+            }
+        }
     }
 }
