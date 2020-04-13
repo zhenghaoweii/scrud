@@ -165,6 +165,8 @@ class ClassesGenerator
                 'replace_replace' => ['Create'.Str::ucfirst($class), strtolower(Str::plural($class))],
         ];
         $this->generate('migration', $payload);
+
+        return $payload['file_name'];
     }
 
     /**
