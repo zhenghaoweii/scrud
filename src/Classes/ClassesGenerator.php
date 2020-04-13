@@ -3,8 +3,9 @@
 
 namespace limitless\scrud\Classes;
 
+use Exception;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 
@@ -13,25 +14,33 @@ class ClassesGenerator
     /**
      * The filesystem instance.
      *
-     * @var \Illuminate\Filesystem\Filesystem
+     * @var Filesystem
      */
     protected $file;
 
+    /**
+     * ClassesGenerator constructor.
+     */
     public function __construct()
     {
         $this->file = (new Filesystem);
     }
 
-    protected function generate($type, array $payload)
+    /**
+     * @param  string  $type
+     * @param  array  $payload
+     * @param  bool  $sync
+     */
+    public function generate($type, array $payload, $sync = false)
     {
         try {
             $modelTemplate = str_replace(
                     $payload['replace_find'],
                     $payload['replace_replace'],
-                    $this->getStub($type)
+                    $this->getStub($payload['stub'])
             );
 
-            switch ($type){
+            switch ($type) {
                 case 'migration':
                     if ( ! $this->file->isDirectory(database_path($payload['path']))) {
                         $this->file->makeDirectory(database_path($payload['path']), 0777, true, true);
@@ -49,20 +58,24 @@ class ClassesGenerator
                     }
                     $path = app_path($payload['path'].'/'.$payload['file_name']);
 
-                    if ( ! $this->file->exists($path)) {
+                    if ( ! $this->file->exists($path) || $sync) {
                         $this->file->put($path, $modelTemplate);
                     }
             }
-        }catch (\Exception $e){
-            Log::error(json_encode($e));
+        } catch (Exception $e) {
+            dd($e);
         }
     }
 
+    /**
+     * @param $class
+     */
     public function controller($class)
     {
         $payload = [
                 'path'            => '/Http/Controllers/API',
                 'class'           => $class,
+                'stub'            => 'Controller',
                 'file_name'       => Str::ucfirst($class).'Controller.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
                 'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
@@ -70,11 +83,15 @@ class ClassesGenerator
         $this->generate('controller', $payload);
     }
 
+    /**
+     * @param $class
+     */
     public function model($class)
     {
         $payload = [
                 'path'            => $this->getConfig('directory.model'),
                 'class'           => $class,
+                'stub'            => 'Model',
                 'file_name'       => Str::ucfirst($class).'.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
                 'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
@@ -82,35 +99,44 @@ class ClassesGenerator
         $this->generate('model', $payload);
     }
 
+    /**
+     * @param $class
+     */
     public function request($class)
     {
         //Create Request
         $payload = [
                 'path'            => '/Http/Requests/'.Str::ucfirst($class),
                 'class'           => $class,
+                'stub'            => 'Requests/Create',
                 'file_name'       => 'Create'.Str::ucfirst($class).'Request.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
                 'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
         ];
-        $this->generate('requests/create', $payload);
+        $this->generate('requests', $payload);
 
         //Update Request
         $payload = [
                 'path'            => '/Http/Requests/'.Str::ucfirst($class),
                 'class'           => $class,
+                'stub'            => 'Requests/Update',
                 'file_name'       => 'Update'.Str::ucfirst($class).'Request.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
                 'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
         ];
-        $this->generate('requests/update', $payload);
+        $this->generate('requests', $payload);
 
     }
 
+    /**
+     * @param $class
+     */
     public function resource($class)
     {
         $payload = [
                 'path'            => '/Http/Resources',
                 'class'           => $class,
+                'stub'            => 'Resource',
                 'file_name'       => Str::ucfirst($class).'Resource.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
                 'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
@@ -118,12 +144,16 @@ class ClassesGenerator
         $this->generate('resource', $payload);
     }
 
+    /**
+     * @param $class
+     */
     public function migration($class)
     {
 
         $payload = [
                 'path'            => '/migrations',
                 'class'           => $class,
+                'stub'            => 'Migration',
                 'file_name'       => $this->getDatePrefix().'_create_'.strtolower($class).'_table.php',
                 'replace_find'    => ['{{ class }}', '{{ table }}'],
                 'replace_replace' => ['Create'.Str::ucfirst($class), strtolower(Str::plural($class))],
@@ -131,113 +161,143 @@ class ClassesGenerator
         $this->generate('migration', $payload);
     }
 
-
+    /**
+     * @param $class
+     * @throws FileNotFoundException
+     */
     public function syncModel($class)
     {
-        $resources = str_replace(
-                ['{{ class }}', '{{ classPlural }}', '{{ fillable }}'],
-                [
-                        Str::ucfirst($class),
-                        strtolower(Str::plural($class)),
-                        collect($this->getColumns($class))->keys()->filter(function ($item) {
-                            return $item != 'id';
-                        })->map(function ($item) {
-                            return "'$item'";
-                        })->implode(',')
+        $payload = [
+                'path'            => $this->getConfig('directory.model'),
+                'class'           => $class,
+                'stub'            => 'Sync/Model',
+                'file_name'       => Str::ucfirst($class).'.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{ fillable }}'],
+                'replace_replace' => [
+                        Str::ucfirst($class), strtolower(Str::plural($class)), $this->generateModelFillable($class)
                 ],
-                $this->getStub('Sync/Model')
-        );
-
-        $path = $this->getConfig('directory.model').'/'.Str::ucfirst($class).'.php';
-        $this->file->put($path, $resources);
-    }
-
-    public function syncResource($class)
-    {
-        $value = collect($this->getColumns($class))->keys()->map(function ($item) {
-            return "'$item'=>\$this->$item";
-        })->implode(',');
-
-        $resources = str_replace(
-                ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
-                [
-                        Str::ucfirst($class),
-                        strtolower(Str::plural($class)),
-                        $value
-                ],
-                $this->getStub('Sync/Resource')
-        );
-
-        $path = app_path('/Http/Resources/'.Str::ucfirst($class).'Resource.php');
-        $this->file->put($path, $resources);
-    }
-
-    public function syncRequest($class)
-    {
-        $value = collect($this->getColumns($class))->filter(function ($item, $index) {
-            return $index != 'id';
-        })->map(function ($item, $index) {
-            if (isset($item['value']) && $item['value'] == 'enum') {
-                $options = implode(',', $item['options']);
-
-                return "'$index'=>'required|in:$options'";
-            }
-            switch ($item) {
-                case 'bigInteger':
-                    return "'$index'=>'required|numeric'";
-                    break;
-                case 'boolean':
-                    return "'$index'=>'required|boolean'";
-                    break;
-                default:
-                    return "'$index'=>'required'";
-            }
-        })->implode(',');
-
-        $modelTemplate = str_replace(
-                ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
-                [
-                        Str::ucfirst($class),
-                        strtolower(Str::plural($class)),
-                        $value
-                ],
-                $this->getStub('Sync/Requests/Create')
-        );
-        $path          = app_path('/Http/Requests/'.Str::ucfirst($class).'/Create'.Str::ucfirst($class).'Request.php');
-        $this->file->put($path, $modelTemplate);
-
-
-        $modelTemplate = str_replace(
-                ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
-                [
-                        Str::ucfirst($class),
-                        strtolower(Str::plural($class)),
-                        $value
-                ],
-                $this->getStub('Sync/Requests/Update')
-        );
-
-        $path = app_path('/Http/Requests/'.Str::ucfirst($class).'/Update'.Str::ucfirst($class).'Request.php');
-        $this->file->put($path, $modelTemplate);
+        ];
+        $this->generate('model', $payload, true);
     }
 
     /**
-     * Helper to get the config values.
-     *
+     * @param $class
+     */
+    public function syncResource($class)
+    {
+        $payload = [
+                'path'            => '/Http/Resources',
+                'class'           => $class,
+                'stub'            => 'Sync/Resource',
+                'file_name'       => Str::ucfirst($class).'Resource.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
+                'replace_replace' => [
+                        Str::ucfirst($class), strtolower(Str::plural($class)), $this->generateResourceValue($class)
+                ],
+        ];
+        $this->generate('resource', $payload, true);
+    }
+
+    /**
+     * @param $class
+     */
+    public function syncRequest($class)
+    {
+        $payload = [
+                'path'            => '/Http/Requests/'.Str::ucfirst($class),
+                'class'           => $class,
+                'stub'            => 'Sync/Requests/Create',
+                'file_name'       => 'Create'.Str::ucfirst($class).'Request.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
+                'replace_replace' => [
+                        Str::ucfirst($class), strtolower(Str::plural($class)),
+                        $this->generateRequestValue($class)
+                ],
+        ];
+
+        $this->generate('model', $payload, true);
+
+        $payload = [
+                'path'            => '/Http/Requests/'.Str::ucfirst($class),
+                'class'           => $class,
+                'stub'            => 'Sync/Requests/Update',
+                'file_name'       => 'Update'.Str::ucfirst($class).'Request.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{ value }}'],
+                'replace_replace' => [
+                        Str::ucfirst($class), strtolower(Str::plural($class)),
+                        $this->generateRequestValue($class)
+                ],
+        ];
+
+        $this->generate('model', $payload, true);
+    }
+
+    /**
+     * @param $class
+     * @return string
+     * @throws FileNotFoundException
+     */
+    public function generateModelFillable($class)
+    {
+        return collect($this->getColumns($class))->keys()->filter(function ($item) {
+            return $item != 'id';
+        })->map(function ($item) {
+            return "'$item'";
+        })->implode(',');
+    }
+
+    public function generateRequestValue($class)
+    {
+        $value = '';
+        try {
+            $value = collect($this->getColumns($class))->filter(function ($index) {
+                return $index != 'id';
+            })->map(function ($item, $index) {
+                if (isset($item['value']) && $item['value'] == 'enum') {
+                    $options = implode(',', $item['options']);
+
+                    return "'$index'=>'required|in:$options'";
+                }
+                switch ($item) {
+                    case 'bigInteger':
+                        return "'$index'=>'required|numeric'";
+                        break;
+                    case 'boolean':
+                        return "'$index'=>'required|boolean'";
+                        break;
+                    default:
+                        return "'$index'=>'required'";
+                }
+            })->implode(',');
+        } catch (FileNotFoundException $e) {
+            dd($e);
+        }
+
+        return $value;
+    }
+
+    public function generateResourceValue($class)
+    {
+        $value = '';
+        try {
+            $value = collect($this->getColumns($class))->keys()->map(function ($item) {
+                return "'$item'=>\$this->$item";
+            })->implode(',');
+        } catch (FileNotFoundException $e) {
+            dd($e);
+        }
+
+        return $value;
+    }
+
+    /**
      * @param  string  $key
-     * @param  string  $default
-     *
      * @return mixed
      */
-    public function getConfig($key = null)
+    public function getConfig($key = '')
     {
-        $file = new Filesystem;
-
-        if ($file->exists(config_path('scrud.php'))) {
-            $config = include(config_path('scrud.php'));
-        } else {
-            $config = include(realpath(__DIR__.'/../../config/config.php'));
-        }
+        $include = ($this->file->exists(config_path('scrud.php'))) ? config_path('scrud.php') : realpath(__DIR__.'/../../config/config.php');
+        $config  = fopen($include,"r");
 
         if ($key != null) {
             return Arr::get($config, $key);
@@ -247,22 +307,36 @@ class ClassesGenerator
 
     }
 
+    /**
+     * @param $type
+     * @return string
+     * @throws FileNotFoundException
+     */
     public function getStub($type)
     {
-        return file_get_contents(dirname(dirname(__FILE__))."/Stubs/$type.stub");
+        return $this->file->get(dirname(dirname(__FILE__))."/Stubs/$type.stub");
     }
 
+    /**
+     * @param $class
+     * @return array
+     * @throws FileNotFoundException
+     */
     public function getColumns($class)
     {
-        $file = glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'))[0];
 
-        preg_match_all('/table->(.*?)\(\'(.*?)\'\)/', $this->file->get($file), $matched);
+        $file = glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'));
+        if (count($file) < 1) {
+            dd('no migration file');
+        }
+
+        preg_match_all('/table->(.*?)\(\'(.*?)\'\)/', $this->file->get($file[0]), $matched);
 
         $merged  = collect($matched[2])->combine($matched[1])->toArray();
         $columns = [];
         collect($merged)->each(function ($item, $index) use (&$columns) {
             if ($item == 'enum') {
-                preg_match('/\[(.*?)\]/', $index, $matched);
+                preg_match('/\[(.*?)]/', $index, $matched);
                 $enum               = array_map('trim', explode(',', $matched[1]));
                 $index              = explode("',", $index);
                 $columns[$index[0]] = [

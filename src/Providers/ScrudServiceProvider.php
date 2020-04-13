@@ -2,7 +2,6 @@
 
 namespace limitless\scrud\Providers;
 
-use Illuminate\Support\ServiceProvider;
 use limitless\scrud\Commands\ApiGenerator;
 use limitless\scrud\Commands\SyncTableColumns;
 

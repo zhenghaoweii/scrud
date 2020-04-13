@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Support\Str;
 use PHPUnit\Framework\TestCase;
 
@@ -19,6 +20,7 @@ class FileGeneratorTest extends TestCase
 
     }
 
+
     protected function setUp()
     {
         parent::setUp();
@@ -27,10 +29,11 @@ class FileGeneratorTest extends TestCase
         $this->class     = 'haowei';
 
         system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
-        $this->file->makeDirectory('application', 0777, true, true);
+        $this->file->makeDirectory('application', 0777);
 
-        $app = new Illuminate\Foundation\Application(realpath(__DIR__.'/../application'));
+        new Illuminate\Foundation\Application(realpath(__DIR__.'/../application'));
     }
+
     protected function tearDown()
     {
         parent::tearDown();
@@ -38,80 +41,193 @@ class FileGeneratorTest extends TestCase
         new Illuminate\Foundation\Application(null);
     }
 
-    /** @test */
-    public function generate_controller()
-    {
-        (new ClassesGenerator)->controller($this->class);
 
-        $path = app_path('/Http/Controllers/API/'.Str::ucfirst($this->class).'Controller.php');
-        $this->assertFileExists($path);
+    /** @test */
+    public function default_generator()
+    {
+        $payload = [
+                'path'            => '/Http/Controllers/API/',
+                'class'           => $this->class,
+                'stub'            => 'Controller',
+                'file_name'       => Str::ucfirst($this->class).'Controller.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
+                'replace_replace' => [
+                        Str::ucfirst($this->class), strtolower(Str::plural($this->class)), strtolower($this->class)
+                ],
+        ];
+
+        (new ClassesGenerator)->generate('controller', $payload);
+
+        $this->checkFileExist($payload);
     }
 
     /** @test */
-    public function generate_model()
+    public function migration_generator()
     {
-        (new ClassesGenerator)->model($this->class);
-        $path = app_path($this->generator->getConfig('directory.model').'/'.Str::ucfirst($this->class).'.php');
-        $this->assertFileExists($path);
+        $payload = [
+                'path'            => '/migrations',
+                'class'           => $this->class,
+                'stub'            => 'Migration',
+                'file_name'       => date('Y_m_d_His').'_create_'.strtolower($this->class).'_table.php',
+                'replace_find'    => ['{{ class }}', '{{ table }}'],
+                'replace_replace' => ['Create'.Str::ucfirst($this->class), strtolower(Str::plural($this->class))],
+        ];
 
+        (new ClassesGenerator)->generate('migration', $payload);
+
+        $files = glob(database_path('/migrations/*_create_'.strtolower($this->class).'_table.php'));
+        $found = (count($files) > 0) ? true : false;
+
+        $this->assertSame($found, true);
     }
 
-    /** @test */
-    public function generate_request()
+    /**
+     * @test
+     * @throws FileNotFoundException
+     */
+    public function sync_column_model()
     {
-        (new ClassesGenerator)->request($this->class);
-        $path = app_path('/Http/Requests/'.Str::ucfirst($this->class).'/Create'.Str::ucfirst($this->class).'Request.php');
-        $this->assertFileExists($path);
+        $class = 'sync_model';
+        $this->init_migration_test_file($class);
+        $payload    = $this->init_model_for_sync_columns_test($class);
+        $getColumns = (new ClassesGenerator)->generateModelFillable($class);
 
-        $path = app_path('/Http/Requests/'.Str::ucfirst($this->class).'/Update'.Str::ucfirst($this->class).'Request.php');
-        $this->assertFileExists($path);
+        (new ClassesGenerator)->syncModel($class);
+
+        $file = $this->file->get(app_path($payload['path'].'/'.$payload['file_name']));
+
+        $found = (strpos($file, $getColumns) !== false) ? true : false;
+
+        $this->assertSame($found, true);
     }
 
-    /** @test */
-    public function generate_resource()
+    /**
+     * @test
+     * @throws FileNotFoundException
+     */
+    public function sync_column_resource()
     {
-        (new ClassesGenerator)->resource($this->class);
-        $path = app_path('/Http/Resources/'.Str::ucfirst($this->class).'Resource.php');
-        $this->assertFileExists($path);
+        $class = 'sync_resource';
+        $this->init_migration_test_file($class);
+        $payload = $this->init_resource_for_sync_columns_test($class);
+        $value   = (new ClassesGenerator)->generateResourceValue($class);
+
+        (new ClassesGenerator)->syncResource($class);
+
+        $file = $this->file->get(app_path($payload['path'].'/'.$payload['file_name']));
+
+        $found = (strpos($file, $value) !== false) ? true : false;
+
+        $this->assertSame($found, true);
     }
 
-    /** @test */
-    public function generate_migration()
+    /**
+     * @test
+     */
+    public function sync_column_request()
     {
-        (new ClassesGenerator)->migration($this->class);
+        $class = 'sync_request';
+        $this->init_migration_test_file($class);
+        $this->process_column_request($class, 'Create');
+        $this->process_column_request($class, 'Update');
+    }
+
+    protected function process_column_request($class, $type)
+    {
+        $payload = $this->init_request_sync_columns_test($class, $type);
+        $value   = (new ClassesGenerator)->generateRequestValue($class);
+        (new ClassesGenerator)->syncRequest($class);
+        $request_file = [];
+        try {
+            $request_file = $this->file->get(app_path($payload['path'].'/'.$payload['file_name']));
+        } catch (FileNotFoundException $e) {
+            dd($e);
+        }
+
+        $found = (strpos($request_file, $value) !== false) ? true : false;
+        $this->assertSame($found, true);
+    }
+
+    protected function init_migration_test_file($class)
+    {
+        $payload = [
+                'path'            => '/migrations',
+                'class'           => $class,
+                'stub'            => 'ExampleTest/Migration',
+                'file_name'       => date('Y_m_d_His').'_create_'.strtolower($class).'_table.php',
+                'replace_find'    => ['{{ class }}', '{{ table }}'],
+                'replace_replace' => ['Create'.Str::ucfirst($class), strtolower(Str::plural($class))],
+        ];
+
+        (new ClassesGenerator)->generate('migration', $payload);
 
         $found = false;
-        if (count(glob(database_path('/migrations/*_create_'.strtolower($this->class).'_table.php'))) > 0) {
+        if (count(glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'))) > 0) {
             $found = true;
         }
 
         $this->assertSame($found, true);
     }
 
-    /** test */
-    public function sync_column()
+    protected function init_model_for_sync_columns_test($class)
     {
-        $class= 'syncMigration';
+        $payload = [
+                'path'            => (new ClassesGenerator)->getConfig('directory.model'),
+                'class'           => $class,
+                'stub'            => 'Model',
+                'file_name'       => Str::ucfirst($class).'.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
+                'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
+        ];
 
-        $this->init_migration_test_file($class);
+        (new ClassesGenerator)->generate('model', $payload);
+
+        $this->checkFileExist($payload);
+
+        return $payload;
     }
 
+    protected function init_resource_for_sync_columns_test($class)
+    {
+        $payload = [
+                'path'            => '/Http/Resources',
+                'class'           => $class,
+                'stub'            => 'Resource',
+                'file_name'       => Str::ucfirst($class).'Resource.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
+                'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
+        ];
 
-    protected function init_migration_test_file($class){
-        if ( ! $this->file->isDirectory(database_path('/migrations'))) {
-            $this->file->makeDirectory(database_path('/migrations'), 0777, true, true);
-        }
+        (new ClassesGenerator)->generate('resource', $payload);
 
-        $modelTemplate = str_replace(
-                ['{{ class }}', '{{ table }}'],
-                ['Create'.Str::ucfirst($class), strtolower(Str::plural($class))],
-                (new ClassesGenerator)->getStub('ExampleTest/Migration')
-        );
+        $this->checkFileExist($payload);
 
-        $path = database_path('/migrations/'.(new ClassesGenerator)->getDatePrefix().'_create_'.strtolower($class).'_table.php');
-        if (count(glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'))) === 0) {
-            $this->file->put($path, $modelTemplate);
-        }
+        return $payload;
+    }
+
+    protected function init_request_sync_columns_test($class, $type)
+    {
+
+        $payload = [
+                'path'            => '/Http/Requests/'.Str::ucfirst($class),
+                'class'           => $class,
+                'stub'            => 'Requests/'.$type,
+                'file_name'       => $type.Str::ucfirst($class).'Request.php',
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
+                'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
+        ];
+
+        (new ClassesGenerator)->generate('request', $payload);
+
+        $this->checkFileExist($payload);
+
+        return $payload;
+    }
+
+    protected function checkFileExist($payload)
+    {
+        $path = app_path($payload['path'].'/'.$payload['file_name']);
+        $this->assertFileExists($path);
     }
 
 
