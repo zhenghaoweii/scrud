@@ -2,19 +2,21 @@
 
 namespace limitless\scrud\Providers;
 
+use Illuminate\Support\ServiceProvider;
 use limitless\scrud\Commands\ApiGenerator;
 use limitless\scrud\Commands\SyncTableColumns;
 
-class ScrudServiceProvider extends AbstractServiceProvider
+class ScrudServiceProvider extends ServiceProvider
 {
-    public function boot(){
+    public function boot()
+    {
 
         $path = realpath(__DIR__.'/../../config/config.php');
 
-        $this->publishes([$path => config_path('scrud.php')], 'config');
-
         //php artisan vendor:publish --tag=scrud
+        $this->publishes([$path => config_path('scrud.php')], 'config');
         $this->mergeConfigFrom($path, 'scrud');
+
 
         if ($this->app->runningInConsole()) {
             $this->commands([

@@ -141,7 +141,7 @@ class FileGeneratorTest extends TestCase
         try {
             $request_file = $this->file->get(app_path($payload['path'].'/'.$payload['file_name']));
         } catch (FileNotFoundException $e) {
-            dd($e);
+            throw new FileNotFoundException($e);
         }
 
         $found = (strpos($request_file, $value) !== false) ? true : false;
@@ -171,14 +171,19 @@ class FileGeneratorTest extends TestCase
 
     protected function init_model_for_sync_columns_test($class)
     {
-        $payload = [
-                'path'            => (new ClassesGenerator)->getConfig('directory.model'),
-                'class'           => $class,
-                'stub'            => 'Model',
-                'file_name'       => Str::ucfirst($class).'.php',
-                'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
-                'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
-        ];
+        $payload = [];
+        try {
+            $payload = [
+                    'path'            => (new ClassesGenerator)->getConfig('directory.model'),
+                    'class'           => $class,
+                    'stub'            => 'Model',
+                    'file_name'       => Str::ucfirst($class).'.php',
+                    'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
+                    'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
+            ];
+        } catch (Exception $e) {
+            throw new Exception($e);
+        }
 
         (new ClassesGenerator)->generate('model', $payload);
 

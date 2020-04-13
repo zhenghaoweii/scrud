@@ -3,6 +3,7 @@
 namespace limitless\scrud\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use limitless\scrud\Classes\ClassesGenerator;
 
 class SyncTableColumns extends Command
@@ -38,6 +39,7 @@ class SyncTableColumns extends Command
      * Execute the console command.
      *
      * @return mixed
+     * @throws FileNotFoundException
      */
     public function handle()
     {
@@ -46,5 +48,7 @@ class SyncTableColumns extends Command
         $this->generator->syncModel($class);
         $this->generator->syncResource($class);
         $this->generator->syncRequest($class);
+
+        return 'Completed';
     }
 }

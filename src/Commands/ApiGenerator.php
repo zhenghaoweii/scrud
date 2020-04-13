@@ -2,6 +2,7 @@
 
 namespace limitless\scrud\Commands;
 
+use Exception;
 use Illuminate\Console\Command;
 use limitless\scrud\Classes\ClassesGenerator;
 
@@ -25,8 +26,6 @@ class ApiGenerator extends Command
     /**
      * Create a new migration creator instance.
      *
-     * @param  string  $customStubPath
-     * @return void
      */
     public function __construct()
     {
@@ -39,6 +38,7 @@ class ApiGenerator extends Command
      * Execute the console command.
      *
      * @return mixed
+     * @throws Exception
      */
     public function handle()
     {
@@ -53,5 +53,7 @@ class ApiGenerator extends Command
         if ($haveMigration == 'm') {
             $this->generator->migration($class);
         }
+
+        return 'Completed';
     }
 }

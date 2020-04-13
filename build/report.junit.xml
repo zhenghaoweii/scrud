@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <testsuites>
-  <testsuite name="scrub Test Suite" tests="5" assertions="13" errors="0" failures="0" skipped="0" time="0.092901">
-    <testsuite name="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" tests="5" assertions="13" errors="0" failures="0" skipped="0" time="0.092901">
-      <testcase name="default_generator" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="46" assertions="1" time="0.018950"/>
-      <testcase name="migration_generator" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="65" assertions="1" time="0.019598"/>
-      <testcase name="sync_column_model" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="88" assertions="3" time="0.026151"/>
-      <testcase name="sync_column_resource" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="108" assertions="3" time="0.013611"/>
-      <testcase name="sync_column_request" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="127" assertions="5" time="0.014591"/>
+  <testsuite name="scrub Test Suite" tests="5" assertions="13" errors="0" failures="0" skipped="0" time="0.069123">
+    <testsuite name="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" tests="5" assertions="13" errors="0" failures="0" skipped="0" time="0.069123">
+      <testcase name="default_generator" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="46" assertions="1" time="0.018745"/>
+      <testcase name="migration_generator" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="65" assertions="1" time="0.008475"/>
+      <testcase name="sync_column_model" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="88" assertions="3" time="0.011726"/>
+      <testcase name="sync_column_resource" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="108" assertions="3" time="0.012690"/>
+      <testcase name="sync_column_request" class="FileGeneratorTest" classname="FileGeneratorTest" file="/Users/limitless/Development/workspace/packages/scrud/tests/FileGeneratorTest.php" line="127" assertions="5" time="0.017487"/>
     </testsuite>
   </testsuite>
 </testsuites>

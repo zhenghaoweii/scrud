@@ -30,6 +30,7 @@ class ClassesGenerator
      * @param  string  $type
      * @param  array  $payload
      * @param  bool  $sync
+     * @throws Exception
      */
     public function generate($type, array $payload, $sync = false)
     {
@@ -63,12 +64,13 @@ class ClassesGenerator
                     }
             }
         } catch (Exception $e) {
-            dd($e);
+            throw new Exception($e);
         }
     }
 
     /**
      * @param $class
+     * @throws Exception
      */
     public function controller($class)
     {
@@ -85,6 +87,7 @@ class ClassesGenerator
 
     /**
      * @param $class
+     * @throws Exception
      */
     public function model($class)
     {
@@ -101,6 +104,7 @@ class ClassesGenerator
 
     /**
      * @param $class
+     * @throws Exception
      */
     public function request($class)
     {
@@ -130,6 +134,7 @@ class ClassesGenerator
 
     /**
      * @param $class
+     * @throws Exception
      */
     public function resource($class)
     {
@@ -146,6 +151,7 @@ class ClassesGenerator
 
     /**
      * @param $class
+     * @throws Exception
      */
     public function migration($class)
     {
@@ -164,6 +170,7 @@ class ClassesGenerator
     /**
      * @param $class
      * @throws FileNotFoundException
+     * @throws Exception
      */
     public function syncModel($class)
     {
@@ -182,6 +189,8 @@ class ClassesGenerator
 
     /**
      * @param $class
+     * @throws FileNotFoundException
+     * @throws Exception
      */
     public function syncResource($class)
     {
@@ -200,6 +209,8 @@ class ClassesGenerator
 
     /**
      * @param $class
+     * @throws FileNotFoundException
+     * @throws Exception
      */
     public function syncRequest($class)
     {
@@ -246,11 +257,15 @@ class ClassesGenerator
         })->implode(',');
     }
 
+    /**
+     * @param $class
+     * @return string
+     * @throws FileNotFoundException
+     */
     public function generateRequestValue($class)
     {
-        $value = '';
         try {
-            $value = collect($this->getColumns($class))->filter(function ($index) {
+            return collect($this->getColumns($class))->filter(function ($index) {
                 return $index != 'id';
             })->map(function ($item, $index) {
                 if (isset($item['value']) && $item['value'] == 'enum') {
@@ -270,21 +285,23 @@ class ClassesGenerator
                 }
             })->implode(',');
         } catch (FileNotFoundException $e) {
-            dd($e);
+            throw new FileNotFoundException($e);
         }
-
-        return $value;
     }
 
+    /**
+     * @param $class
+     * @return string
+     * @throws FileNotFoundException
+     */
     public function generateResourceValue($class)
     {
-        $value = '';
         try {
             $value = collect($this->getColumns($class))->keys()->map(function ($item) {
                 return "'$item'=>\$this->$item";
             })->implode(',');
         } catch (FileNotFoundException $e) {
-            dd($e);
+            throw new FileNotFoundException($e);
         }
 
         return $value;
@@ -293,14 +310,21 @@ class ClassesGenerator
     /**
      * @param  string  $key
      * @return mixed
+     * @throws Exception
      */
     public function getConfig($key = '')
     {
-        $include = ($this->file->exists(config_path('scrud.php'))) ? config_path('scrud.php') : realpath(__DIR__.'/../../config/config.php');
-        $config  = fopen($include,"r");
+        try {
+            $published = config_path('scrud.php');
+            $default   = realpath(__DIR__.'/../../config/config.php');
+            $include   = ($this->file->exists($published)) ? $published : $default;
+            $config    = file_get_contents($include);
 
-        if ($key != null) {
-            return Arr::get($config, $key);
+            if ($key != null && is_array($config)) {
+                return Arr::get($config, $key);
+            }
+        } catch (Exception $e) {
+            throw new Exception($e);
         }
 
         return $config;
@@ -327,7 +351,7 @@ class ClassesGenerator
 
         $file = glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'));
         if (count($file) < 1) {
-            dd('no migration file');
+            throw new FileNotFoundException('Migration file not found');
         }
 
         preg_match_all('/table->(.*?)\(\'(.*?)\'\)/', $this->file->get($file[0]), $matched);
