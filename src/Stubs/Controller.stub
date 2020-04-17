@@ -7,7 +7,7 @@ use App\Models\{{ class }};
 use App\Http\Requests\{{ class }}\Create{{ class }}Request;
 use App\Http\Requests\{{ class }}\Update{{ class }}Request;
 use App\Http\Resources\{{ class }}Resource;
-use App\Traits\ApiCRUD;
+use limitless\scrud\Traits\ApiCRUD;
 
 class {{ class }}Controller extends Controller
 {

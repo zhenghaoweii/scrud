@@ -1,6 +1,6 @@
 {
     "name": "limitless/scrud",
-    "description": "Simple Laravel Default CRUD",
+    "description": "Simple Laravel Default API CRUD",
     "type": "library",
     "license": "MIT",
     "authors": [
