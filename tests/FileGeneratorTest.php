@@ -37,7 +37,7 @@ class FileGeneratorTest extends TestCase
     protected function tearDown()
     {
         parent::tearDown();
-//        system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
+        system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
         new Illuminate\Foundation\Application(null);
     }
 
