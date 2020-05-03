@@ -3,6 +3,7 @@
 namespace limitless\scrud\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use limitless\scrud\Classes\ClassesGenerator;
 use limitless\scrud\Commands\ApiGenerator;
 use limitless\scrud\Commands\SyncTableColumns;
 
@@ -29,5 +30,11 @@ class ScrudServiceProvider extends ServiceProvider
     public function register()
     {
         parent::register();
+
+        $this->app->bind('scrud',function(){
+
+            return new ClassesGenerator();
+
+        });
     }
 }
