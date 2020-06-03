@@ -20,16 +20,15 @@ class FileGeneratorTest extends TestCase
 
     }
 
-
     protected function setUp()
     {
         parent::setUp();
         $this->file      = (new Filesystem);
         $this->generator = (new ClassesGenerator);
-        $this->class     = 'haowei';
+        $this->class     = 'HaoweiProducts';
 
         system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
-        $this->file->makeDirectory('application', 0777);
+        $this->file->makeDirectory(__DIR__.'/../application', 0777);
 
         new Illuminate\Foundation\Application(realpath(__DIR__.'/../application'));
     }
@@ -45,7 +44,7 @@ class FileGeneratorTest extends TestCase
     public function default_generator()
     {
         $payload = [
-                'path'            => '/Http/Controllers/API/',
+                'path'            => '/Http/Controllers/API',
                 'class'           => $this->class,
                 'stub'            => 'Controller',
                 'file_name'       => Str::ucfirst($this->class).'Controller.php',

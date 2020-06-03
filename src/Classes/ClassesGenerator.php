@@ -48,7 +48,7 @@ class ClassesGenerator
                     }
                     $path = database_path($payload['path'].'/'.$payload['file_name']);
 
-                    if (count(glob(database_path($payload['path'].'/*_create_'.strtolower($payload['class']).'_table.php'))) === 0) {
+                    if (count(glob(database_path($payload['path'].'/*_create_'.strtolower(Str::snake($payload['class'])).'_table.php'))) === 0) {
                         $this->file->put($path, $modelTemplate);
                     }
 
@@ -97,7 +97,7 @@ class ClassesGenerator
                 'stub'            => 'Model',
                 'file_name'       => Str::ucfirst($class).'.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
-                'replace_replace' => [Str::ucfirst($class), strtolower(Str::plural($class)), strtolower($class)],
+                'replace_replace' => [Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))), strtolower($class)],
         ];
         $this->generate('model', $payload);
     }
@@ -160,9 +160,9 @@ class ClassesGenerator
                 'path'            => '/migrations',
                 'class'           => $class,
                 'stub'            => 'Migration',
-                'file_name'       => $this->getDatePrefix().'_create_'.strtolower($class).'_table.php',
+                'file_name'       => $this->getDatePrefix().'_create_'.strtolower(Str::snake($class)).'_table.php',
                 'replace_find'    => ['{{ class }}', '{{ table }}'],
-                'replace_replace' => ['Create'.Str::ucfirst($class), strtolower(Str::plural($class))],
+                'replace_replace' => ['Create'.Str::ucfirst($class), strtolower(Str::snake(Str::plural($class)))],
         ];
         $this->generate('migration', $payload);
 
@@ -183,7 +183,7 @@ class ClassesGenerator
                 'file_name'       => Str::ucfirst($class).'.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{ fillable }}'],
                 'replace_replace' => [
-                        Str::ucfirst($class), strtolower(Str::plural($class)), $this->generateModelFillable($class)
+                        Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))), $this->generateModelFillable($class)
                 ],
         ];
         $this->generate('model', $payload, true);
@@ -351,7 +351,7 @@ class ClassesGenerator
     public function getColumns($class)
     {
 
-        $file = glob(database_path('/migrations/*_create_'.strtolower($class).'_table.php'));
+        $file = glob(database_path('/migrations/*_create_'.strtolower(Str::snake($class)).'_table.php'));
         if (count($file) < 1) {
             throw new FileNotFoundException('Migration file not found');
         }

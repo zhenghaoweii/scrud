@@ -2,16 +2,13 @@
 
 namespace limitless\scrud\Traits;
 
-use App\Classes\RedisClass;
 use Illuminate\Http\Request;
-use Illuminate\Redis\RedisManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use Route;
 
 trait ApiCRUDRedis
 {
-
     protected $_model;
     protected $_redis;
 
@@ -19,7 +16,7 @@ trait ApiCRUDRedis
     {
         $this->_isDisabled();
         $this->_model = (new $this->model());
-        $this->redis  = (isset($this->speed) && $this->speed === true) ? (new RedisClass()) : false;
+        $this->_redis = Redis::connection();
     }
 
     /**
@@ -30,22 +27,19 @@ trait ApiCRUDRedis
     public function index()
     {
         try {
-            if ($this->redis) {
-                $result = $this->redis->hgetall($this->_model->getTable());
-                if ($result->count() === 0) {
-                    $result = $this->_resourcer($this->_model->all(), true);
-                    $this->redis->hsetall($this->_model->getTable(), $result);
-                }
+            $result = $this->getRedisAll();
 
-                return response(['data' => $result]);
+            if (empty($result)) {
+                $result = $this->_resourcer($this->_model->all(), true);
+                $this->_redis->command('hsetnx', [$this->_model->getTable(), 'all', json_encode($result)]);
             } else {
-                $result = $this->_model->all();
+                return response(['data' => json_decode($result, true)]);
             }
         } catch (\Exception $e) {
             return response(['error' => $e->getMessage()], 500);
         }
 
-        return $this->_resourcer($result, true);
+        return $result;
     }
 
     /**
@@ -62,11 +56,8 @@ trait ApiCRUDRedis
         try {
             $result = $this->_model->create($request->all());
             $result = $result->fresh();
+            $this->storeToListRedis($result);
 
-            // sync to redis
-            if ($this->redis) {
-                $this->redis->hsetnx($this->_model->getTable(), $result->id, json_encode($this->_resourcer($result)));
-            }
         } catch (\Exception $e) {
             return response(['error' => $e->getMessage()], 500);
         }
@@ -84,22 +75,17 @@ trait ApiCRUDRedis
     public function show($id)
     {
         try {
-            // get from redis
-            if ($this->redis) {
-                $result = $this->redis->hget($this->_model->getTable(), $id);
-                if ( ! $result) {
-                    $result = $this->_resourcer($this->_model->findOrFail($id));
-                }
+            $result = json_decode($this->getRedisSingular($id));
 
-                return response(['data' => $result]);
-            } else {
-                $result = $this->_model->findOrFail($id);
+            if ( ! $result) {
+                $result = $this->_resourcer($this->_model->findOrFail($id));
+                $this->setRedisSingular($result);
             }
         } catch (\Exception $e) {
             return response(['error' => $e->getMessage()], 500);
         }
 
-        return $this->_resourcer($result);
+        return response(['data' => $result]);
     }
 
     /**
@@ -116,12 +102,7 @@ trait ApiCRUDRedis
         DB::beginTransaction();
         try {
             $result = tap($this->_model->findOrFail($id))->update($request->all());
-
-            // sync to redis
-            if ($this->redis && $this->redis->hget($this->_model->getTable(), $id)) {
-                $this->redis->hset($this->_model->getTable(), $id, $this->_resourcer($result));
-            }
-
+            $this->updateToAllRedis($result);
         } catch (\Exception $e) {
             return response(['error' => $e->getMessage()], 500);
         }
@@ -138,21 +119,15 @@ trait ApiCRUDRedis
      */
     public function destroy($id)
     {
-
         DB::beginTransaction();
         try {
             $backup = $this->_model->findOrFail($id);
             $this->_model->destroy($id);
 
-            // sync to redis
-            if ($this->redis && $this->redis->hget($this->_model->getTable(), $id)) {
-                $this->redis->hdel($this->_model->getTable(), $id);
-            }
-
+            $this->destroyFromAllRedis($backup);
         } catch (\Exception $e) {
             return response(['error' => $e->getMessage()], 500);
         }
-
         DB::commit();
 
         return $this->_resourcer($backup);
@@ -168,15 +143,21 @@ trait ApiCRUDRedis
         }
     }
 
-    private function _resourcer($data, $collection = false)
+    private function _resourcer($data, $collection = false, $list = false)
     {
-
-        if (isset($this->resource) and $this->resource != '' and class_exists($this->resource)) {
-            if ( ! $collection) {
-                return (new $this->resource($data));
+        if (isset($this->resource) and count($this->resource) > 1) {
+            if ( ! $collection && class_exists($this->resource[0])) {
+                if($list){
+                    $collection = (isset($this->resource[1])) ? $this->resource[1] : $this->resource[0];
+                    return (new $collection($data));
+                }
+                return (new $this->resource[0]($data));
             }
 
-            return (new $this->resource(null))::collection($data);
+            $collection = (isset($this->resource[1])) ? $this->resource[1] : $this->resource[0];
+            if (class_exists($this->resource[1])) {
+                return (new $collection(null))::collection($data);
+            }
         }
 
         return response(['data' => $data]);
@@ -191,4 +172,59 @@ trait ApiCRUDRedis
             }
         }
     }
+
+    private function delRedisSingular($result)
+    {
+        $this->_redis->command('hdel', [$this->_model->getTable(), $result->id]);
+    }
+
+    private function setRedisSingular($result)
+    {
+        $this->_redis->command('hset', [$this->_model->getTable(), $result->id, json_encode($result)]);
+    }
+
+    private function getRedisAll()
+    {
+        return $this->_redis->command('hget', [$this->_model->getTable(), 'all']);
+    }
+
+    private function getRedisSingular($id)
+    {
+        return $this->_redis->command('hget', [$this->_model->getTable(), $id]);
+    }
+
+    private function storeToListRedis($result)
+    {
+        $this->setRedisSingular($result);
+        $response = $this->_resourcer($result,false, true);
+        $finalize = collect(json_decode($this->getRedisAll()))->push($response);
+
+        $this->_redis->command('hset', [$this->_model->getTable(), 'all', json_encode($finalize)]);
+
+        return $response;
+    }
+
+    private function updateToAllRedis($result)
+    {
+        $this->setRedisSingular($result);
+        $response      = $this->_resourcer($result,false, true);
+        $existed       = collect(json_decode($this->getRedisAll()));
+        $key           = $existed->where('id', $result->id)->keys()[0];
+        $existed[$key] = $response;
+
+        $this->_redis->command('hset', [$this->_model->getTable(), 'all', json_encode($existed)]);
+
+        return $response;
+    }
+
+    private function destroyFromAllRedis($result)
+    {
+        $this->delRedisSingular($result);
+
+        $existed = collect(json_decode($this->getRedisAll()));
+        $existed = $existed->where('id', '!=', $result->id)->toArray();
+
+        $this->_redis->command('hset', [$this->_model->getTable(), 'all', json_encode($existed)]);
+    }
 }
+
