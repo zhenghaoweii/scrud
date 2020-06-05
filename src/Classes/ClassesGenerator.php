@@ -97,7 +97,9 @@ class ClassesGenerator
                 'stub'            => 'Model',
                 'file_name'       => Str::ucfirst($class).'.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
-                'replace_replace' => [Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))), strtolower($class)],
+                'replace_replace' => [
+                        Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))), strtolower($class)
+                ],
         ];
         $this->generate('model', $payload);
     }
@@ -183,7 +185,8 @@ class ClassesGenerator
                 'file_name'       => Str::ucfirst($class).'.php',
                 'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{ fillable }}'],
                 'replace_replace' => [
-                        Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))), $this->generateModelFillable($class)
+                        Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))),
+                        $this->generateModelFillable($class)
                 ],
         ];
         $this->generate('model', $payload, true);
@@ -206,6 +209,7 @@ class ClassesGenerator
                         Str::ucfirst($class), strtolower(Str::plural($class)), $this->generateResourceValue($class)
                 ],
         ];
+
         $this->generate('resource', $payload, true);
     }
 
@@ -253,7 +257,7 @@ class ClassesGenerator
     public function generateModelFillable($class)
     {
         return collect($this->getColumns($class))->keys()->filter(function ($item) {
-            return $item != 'id';
+            return $item != 'id' && $item != 'timestamps';
         })->map(function ($item) {
             return "'$item'";
         })->implode(',');
@@ -267,24 +271,53 @@ class ClassesGenerator
     public function generateRequestValue($class)
     {
         try {
-            return collect($this->getColumns($class))->filter(function ($index) {
-                return $index != 'id';
+            return collect($this->getColumns($class))->filter(function ($item) {
+                return $item['type'] != 'id' && $item['type'] != 'timestamps';
             })->map(function ($item, $index) {
-                if (isset($item['value']) && $item['value'] == 'enum') {
-                    $options = implode(',', $item['options']);
 
-                    return "'$index'=>'required|in:$options'";
+                $value = [];
+                if ( ! $item['nullable']) {
+                    $value[] = 'required';
                 }
-                switch ($item) {
+                switch ($item['type']) {
+                    case 'string':
+                        if (isset($item['max']) && $item['max'] > 0) {
+                            $value[] = 'max:'.$item['max'];
+                        }
+                        break;
+                    case 'integer':
+                    case 'smallInteger':
+                    case 'tinyInteger':
                     case 'bigInteger':
-                        return "'$index'=>'required|numeric'";
+                    case 'mediumInteger':
+                    case 'unsignedInteger':
+                    case 'unsignedSmallInteger':
+                    case 'unsignedTinyInteger':
+                    case 'unsignedBigInteger':
+                    case 'unsignedMediumInteger':
+                    case 'unsignedDecimal':
+                    case 'unsignedDouble':
+                    case 'unsignedFloat':
+                    case 'foreignId':
+                        $value[] = 'numeric';
+                        if (isset($item['unsigned']) && $item['unsigned']) {
+                            $value[] = 'min:0';
+                        }
                         break;
                     case 'boolean':
-                        return "'$index'=>'required|boolean'";
+                        $value[] = 'boolean';
+                        break;
+                    case 'enum':
+                        $options = implode(',', $item['options']);
+                        $value[] = 'in:'.$options;
                         break;
                     default:
                         return "'$index'=>'required'";
                 }
+
+                $value = collect($value)->implode('|');
+
+                return "'$index'=>'$value'";
             })->implode(',');
         } catch (FileNotFoundException $e) {
             throw new FileNotFoundException($e);
@@ -299,12 +332,22 @@ class ClassesGenerator
     public function generateResourceValue($class)
     {
         try {
-            $value = collect($this->getColumns($class))->keys()->map(function ($item) {
-                return "'$item'=>\$this->$item";
-            })->implode(',');
+            $value = [];
+            collect($this->getColumns($class))->map(function ($item, $index) use (&$value) {
+                if ($index == 'timestamps') {
+                    $value[] = "'created_at'=>\$this->created_at";
+                    $value[] = "'created_by'=>\$this->created_by";
+                    $value[] = "'updated_at'=>\$this->updated_at";
+                    $value[] = "'updated_by'=>\$this->updated_by";
+                } else {
+                    $value[] = "'$index'=>\$this->$index";
+                }
+            });
         } catch (FileNotFoundException $e) {
             throw new FileNotFoundException($e);
         }
+
+        $value = collect($value)->implode(',');
 
         return $value;
     }
@@ -350,31 +393,126 @@ class ClassesGenerator
      */
     public function getColumns($class)
     {
-
         $file = glob(database_path('/migrations/*_create_'.strtolower(Str::snake($class)).'_table.php'));
         if (count($file) < 1) {
             throw new FileNotFoundException('Migration file not found');
         }
 
-        preg_match_all('/table->(.*?)\(\'(.*?)\'\)/', $this->file->get($file[0]), $matched);
+        $list = preg_grep('/table->(.*?);/', explode("\n", $this->file->get($file[0])));
 
-        $merged  = collect($matched[2])->combine($matched[1])->toArray();
-        $columns = [];
-        collect($merged)->each(function ($item, $index) use (&$columns) {
-            if ($item == 'enum') {
-                preg_match('/\[(.*?)]/', $index, $matched);
-                $enum               = array_map('trim', explode(',', $matched[1]));
-                $index              = explode("',", $index);
-                $columns[$index[0]] = [
-                        'value'   => $item,
-                        'options' => str_replace("'", '', $enum),
-                ];
-            } else {
-                $columns[$index] = $item;
-            }
+        $columns = collect($list)->mapWithKeys(function ($item) {
+            return $this->getBluePrint(trim($item));
         })->all();
 
         return $columns;
+    }
+
+    public function getColumnType($item)
+    {
+        $before = strtok(trim($item), '(');
+        $after  = substr(strstr($before, '>'), 1);
+
+        return $after;
+    }
+
+    public function getColumnName($item)
+    {
+        $before = substr(strstr($item, "('"), 1);
+        $after  = strtok(trim($before), "'");
+
+        return $after;
+    }
+
+    public function getColumnDefaultValue($item)
+    {
+        if ( ! strpos($item, 'default(')) {
+            return false;
+        }
+        $before = substr(strstr($item, "default('"), 9);
+        $after  = strtok(trim($before), "'");
+
+        return $after;
+    }
+
+    public function getColumnClosureValue($item, $closure)
+    {
+        if ( ! strpos($item, "$closure(")) {
+            return false;
+        }
+        $before = substr(strstr($item, "$closure('"), 9);
+        $after  = strtok(trim($before), "'");
+
+        return $after;
+    }
+
+    public function getColumnStringLength($item)
+    {
+        $before = substr(strstr($item, "',"), 2);
+        $after  = strtok(trim($before), ")");
+
+        if ((int) $after < 1) {
+            return false;
+        }
+
+        return (int) $after;
+    }
+
+    public function getBluePrint($item)
+    {
+        $type     = $this->getColumnType($item);
+        $name     = $this->getColumnName($item);
+        $nullable = strpos($item, 'nullable()');
+
+        $column = [
+                'type'     => $type,
+                'nullable' => ($nullable > 0) ? true : false
+        ];
+
+        switch ($type) {
+            case 'id':
+            case 'uuid':
+            case 'integerIncrements':
+            case 'smallIncrements':
+            case 'tinyIncrements':
+            case 'bigIncrements':
+            case 'mediumIncrements':
+            case 'increments':
+                $name = $type;
+                break;
+            case 'timestamps':
+                $name = $type;
+                break;
+            case 'enum':
+                preg_match('/\[(.*?)]/', $item, $matched);
+                $enum              = array_map('trim', explode(',', $matched[1]));
+                $column['options'] = str_replace("'", '', $enum);
+                break;
+            case 'string':
+                $column['max'] = $this->getColumnStringLength($item);
+                break;
+            case 'integer':
+            case 'smallInteger':
+            case 'tinyInteger':
+            case 'bigInteger':
+            case 'mediumInteger':
+                $column['unsigned'] = ! strpos($item, 'unsigned()');
+                break;
+            case 'unsignedInteger':
+            case 'unsignedSmallInteger':
+            case 'unsignedTinyInteger':
+            case 'unsignedBigInteger':
+            case 'unsignedMediumInteger':
+            case 'unsignedDecimal':
+            case 'unsignedDouble':
+            case 'unsignedFloat':
+            case 'foreignId':
+                $column['unsigned'] = true;
+                break;
+            default:
+
+        }
+
+        return [$name => $column];
     }
 
     /**
@@ -394,7 +532,7 @@ class ClassesGenerator
      */
     public function checkFilesExisting($class)
     {
-        $class   = Str::ucfirst($class);
+        $class = Str::ucfirst($class);
 
         try {
             $toCheck = [
@@ -412,12 +550,14 @@ class ClassesGenerator
             if ($this->file->exists(app_path($item))) {
                 return true;
             }
+
             return false;
         })->keys()->all();
 
         $last  = array_slice($existed, -1);
         $first = join(', ', array_slice($existed, 0, -1));
         $both  = array_filter(array_merge(array($first), $last), 'strlen');
+
         return join(' and ', $both);
 
     }
