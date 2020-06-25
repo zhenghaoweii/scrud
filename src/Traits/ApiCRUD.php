@@ -13,6 +13,17 @@ trait ApiCRUD {
     public function __construct() {
         $this->_isDisabled();
         $this->_model = (new $this->model());
+
+        if(isset($this->setMiddleware) and count($this->setMiddleware) > 0){
+            foreach ($this->setMiddleware as  $key => $middleware){
+                if(is_int($key)){
+                    $this->middleware($middleware);
+                }else{
+                    $this->middleware($key, $middleware);
+                }
+            }
+        }
+
     }
 
     /**
