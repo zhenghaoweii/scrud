@@ -233,7 +233,7 @@ trait ApiCRUDRedis
         $this->delRedisSingular($result);
 
         $existed = collect(json_decode($this->getRedisAll()));
-        $existed = $existed->where('id', '!=', $result->id)->toArray();
+        $existed = $existed->where('id', '!=', $result->id)->values();
 
         $this->_redis->command('hset', [$this->_model->getTable(), 'all', json_encode($existed)]);
     }

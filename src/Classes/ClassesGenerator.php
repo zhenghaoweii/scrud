@@ -470,6 +470,8 @@ class ClassesGenerator
 
         switch ($type) {
             case 'id':
+                $name = $type;
+                break;
             case 'uuid':
             case 'integerIncrements':
             case 'smallIncrements':
@@ -477,7 +479,7 @@ class ClassesGenerator
             case 'bigIncrements':
             case 'mediumIncrements':
             case 'increments':
-                $name = $type;
+                $name = 'id';
                 break;
             case 'timestamps':
                 $name = $type;

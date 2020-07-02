@@ -14,7 +14,7 @@ class {{ class }} extends Migration
     public function up()
     {
         Schema::create('{{ table }}', function (Blueprint $table) {
-            $table->id();
+            $table->bigIncrements('id');
             $table->bigInteger('merchant_id')->unsigned();
             $table->string('address');
             $table->string('country', 20);
