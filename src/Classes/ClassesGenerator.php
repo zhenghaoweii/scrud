@@ -93,10 +93,11 @@ class ClassesGenerator
     {
         $payload = [
                 'path'            => $this->getConfig('directory.model'),
+                'namespace_path'  => '\\'.$this->getConfig('directory.model'),
                 'class'           => $class,
                 'stub'            => 'Model',
                 'file_name'       => Str::ucfirst($class).'.php',
-                'replace_find'    => ['{{ class }}', '{{ classPlural }}'],
+                'replace_find'    => ['{{ class }}', '{{ classPlural }}', '{{namespace_path}}'],
                 'replace_replace' => [
                         Str::ucfirst($class), strtolower(Str::snake(Str::plural($class))), strtolower($class)
                 ],
