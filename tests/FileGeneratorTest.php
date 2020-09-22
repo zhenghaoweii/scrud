@@ -20,9 +20,8 @@ class FileGeneratorTest extends TestCase
 
     }
 
-    protected function setUp()
+    protected function setUp() : void
     {
-        parent::setUp();
         $this->file      = (new Filesystem);
         $this->generator = (new ClassesGenerator);
         $this->class     = 'HaoweiProducts';
@@ -30,13 +29,14 @@ class FileGeneratorTest extends TestCase
         system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
         $this->file->makeDirectory(__DIR__.'/../application', 0777);
 
+
         new Illuminate\Foundation\Application(realpath(__DIR__.'/../application'));
     }
 
-    protected function tearDown()
+    protected function tearDown() : void
     {
-//        parent::tearDown();
-//        system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
+        parent::tearDown();
+        system("rm -rf ".escapeshellarg(__DIR__.'/../application'));
         new Illuminate\Foundation\Application(null);
     }
 
