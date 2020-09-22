@@ -181,6 +181,7 @@ class ClassesGenerator
     {
         $payload = [
                 'path'            => $this->getConfig('directory.model'),
+                'namespace_path'  => '\\'.$this->getConfig('directory.model'),
                 'class'           => $class,
                 'stub'            => 'Sync/Model',
                 'file_name'       => Str::ucfirst($class).'.php',
